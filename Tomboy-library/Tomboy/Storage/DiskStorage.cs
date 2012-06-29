@@ -19,6 +19,7 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 using System;
 using System.Xml;
+using System.Xml.Linq;
 using System.IO;
 using System.Collections.Generic;
 
@@ -36,6 +37,7 @@ namespace Tomboy
 		/// <description>/home/user/.local/share/tomboy</description>
 		private static string path_to_notes = null;
 		private static string backup_path_notes = null;
+		private static string configPath = null;
 
 		protected DiskStorage ()
 		{
@@ -65,8 +67,12 @@ namespace Tomboy
 		public void SetPath (string path)
 		{
 			path_to_notes = path;
+			if (!System.IO.Directory.Exists (path_to_notes)) {
+				System.IO.Directory.CreateDirectory (path_to_notes);
+			}
 			// where notes are backed up too.
 			backup_path_notes = Path.Combine (path_to_notes, "Backup");
+			configPath = Path.Combine (path_to_notes, "config.xml");
 		}
 		
 		public void SaveNote (Note note)
@@ -85,9 +91,9 @@ namespace Tomboy
 		/// <param name='note'>
 		/// Note.
 		/// </param>
-		public static void Write (string write_file, Note note)
+		public static void Write (string filename, Note note)
 		{
-			WriteFile (write_file, note);
+			WriteFile (Path.Combine (path_to_notes, filename), note);
 		}
 		
 		/// <summary>
@@ -131,25 +137,29 @@ namespace Tomboy
 			if (path_to_notes == null)
 				throw new TomboyException ("No Notes path has been defined");
 			
-			/* For anyone wanting to implement another / different backend,
-			 * this could be changed in the implementing class to retreive whatever notes
-			 */
-			string [] files = Directory.GetFiles (path_to_notes, "*.note");
-			if (files.Length == 0)
-				Console.WriteLine ("no notes found");
-			
-			foreach (string file_path in files) {
-				try {
-					Note note = Read (file_path, Utils.GetURI (file_path));
-					notes.Add (note.Uri, note);
-				} catch (System.Xml.XmlException e) {
-					Console.WriteLine ("Failed to read Note {0}", file_path); /* so we know what note we cannot read */
-					Console.WriteLine (e);
-				} catch (System.IO.IOException e) {
-					Console.WriteLine (e);
-				} catch (System.UnauthorizedAccessException e) {
-					Console.WriteLine (e);
-				}				
+			try {
+				/* For anyone wanting to implement another / different backend,
+				 * this could be changed in the implementing class to retreive whatever notes
+				 */
+				string [] files = Directory.GetFiles (path_to_notes, "*.note");
+				if (files.Length == 0)
+					Console.WriteLine ("No notes found in note folder.");
+				
+				foreach (string file_path in files) {
+					try {
+						Note note = Read (file_path, Utils.GetURI (file_path));
+						notes.Add (note.Uri, note);
+					} catch (System.Xml.XmlException e) {
+						Console.WriteLine ("Failed to read Note {0}", file_path); /* so we know what note we cannot read */
+						Console.WriteLine (e);
+					} catch (System.IO.IOException e) {
+						Console.WriteLine (e);
+					} catch (System.UnauthorizedAccessException e) {
+						Console.WriteLine (e);
+					}				
+				}
+			} catch (System.IO.DirectoryNotFoundException) {
+				Console.WriteLine ("Note folder does not yet exist.");
 			}
 			return notes;
 		}
@@ -195,6 +205,39 @@ namespace Tomboy
 				File.Move (file_path, file_backup_path);
 			} else {
 				File.Move (file_path, file_backup_path);
+			}
+		}
+
+		public void SetConfigVariable (string key, string value)
+		{
+			XDocument config;
+			if (!File.Exists (configPath)) {
+				config = new XDocument ();
+				config.Add (new XElement ("root"));
+			} else {
+				config = XDocument.Load (configPath);
+			}
+
+			if (config.Root.Element (key) != null) {
+				config.Root.Element (key).Value = value;
+			} else {
+				config.Root.Add (new XElement (key, value));
+			}
+
+			config.Save (configPath);
+		}
+
+		public string GetConfigVariable (string key) 
+		{
+			if (!File.Exists (configPath)) {
+				return null;
+			}
+			XDocument config = XDocument.Load (configPath);
+
+			try {
+				return config.Root.Element (key).Value;
+			} catch (NullReferenceException) {
+				return null;
 			}
 		}
 	}
