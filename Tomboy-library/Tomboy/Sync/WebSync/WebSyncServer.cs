@@ -22,7 +22,8 @@ using System.Collections.Generic;
 using Tomboy.Sync.Web.DTO;
 using DevDefined.OAuth.Framework;
 using System.Linq;
-using ServiceStack.ServiceClient.Web;
+using ServiceStack.Web;
+using ServiceStack;
 
 namespace Tomboy.Sync.Web
 {

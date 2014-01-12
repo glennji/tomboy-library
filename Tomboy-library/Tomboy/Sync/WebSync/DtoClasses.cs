@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using Tomboy.Tags;
 using System.Linq;
 using ServiceStack.Common;
+using ServiceStack;
 
 namespace Tomboy.Sync.Web.DTO
 {
